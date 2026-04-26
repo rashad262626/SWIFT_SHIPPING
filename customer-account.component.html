@@ -1,0 +1,260 @@
+<!-- src/app/pages/customers/customer-account/customer-account.component.html -->
+<div class="account-page">
+  <!-- Toast -->
+  <div class="toast" *ngIf="showToast" [ngClass]="toastType">
+    <i class="fas" [ngClass]="toastType === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'"></i>
+    <span>{{ toastMsg }}</span>
+  </div>
+
+  <!-- Header -->
+  <div class="page-head">
+    <div class="page-head-right">
+      <button class="back-btn" (click)="goBack()">
+        <i class="fas fa-arrow-right"></i>
+      </button>
+      <div>
+        <h1>كشف حساب العميل</h1>
+        <p *ngIf="customer">
+          {{ customer.fullName }} · <span class="code">{{ customer.customerCode }}</span>
+        </p>
+      </div>
+    </div>
+    <div class="head-actions" *ngIf="customer">
+      <button class="head-btn secondary" (click)="printStatement()">
+        <i class="fas fa-print"></i> طباعة
+      </button>
+      <button class="head-btn primary" (click)="openAddModal()">
+        <i class="fas fa-plus"></i> إضافة معاملة
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-center" *ngIf="loading">
+    <div class="spinner"></div>
+    <p>جاري تحميل كشف الحساب...</p>
+  </div>
+
+  <!-- Content -->
+  <div *ngIf="!loading && customer">
+    <!-- Customer Card -->
+    <div class="customer-card">
+      <div class="cc-avatar">{{ getInitials(customer.fullName) }}</div>
+      <div class="cc-body">
+        <h2>{{ customer.fullName }}</h2>
+        <div class="cc-tags">
+          <span class="cc-tag"><i class="fas fa-hashtag"></i> {{ customer.customerCode }}</span>
+          <span class="cc-tag"><i class="fas fa-phone-alt"></i> {{ customer.phoneNumber }}</span>
+          <span class="cc-tag" *ngIf="customer.city">
+            <i class="fas fa-map-marker-alt"></i> {{ customer.city }}
+          </span>
+          <span class="cc-tag status" [class.active]="customer.isActive" [class.inactive]="!customer.isActive">
+            {{ customer.isActive ? 'نشط' : 'متوقف' }}
+          </span>
+        </div>
+      </div>
+      <div class="cc-stats">
+        <div class="cc-stat">
+          <span class="cc-stat-label">الطلبات</span>
+          <span class="cc-stat-val">{{ customer.totalOrders }}</span>
+        </div>
+        <div class="cc-stat">
+          <span class="cc-stat-label">تاريخ الإنشاء</span>
+          <span class="cc-stat-val small">{{ customer.createdAt | date:'yyyy/MM/dd' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid" *ngIf="summary">
+      <div class="sum-card debit">
+        <div class="sum-icon"><i class="fas fa-arrow-up"></i></div>
+        <div class="sum-info">
+          <span class="sum-label">إجمالي المدين</span>
+          <span class="sum-val">{{ summary.totalDebit | number:'1.0-0' }} <small>د.ع</small></span>
+        </div>
+      </div>
+      <div class="sum-card credit">
+        <div class="sum-icon"><i class="fas fa-arrow-down"></i></div>
+        <div class="sum-info">
+          <span class="sum-label">إجمالي الدائن</span>
+          <span class="sum-val">{{ summary.totalCredit | number:'1.0-0' }} <small>د.ع</small></span>
+        </div>
+      </div>
+      <div class="sum-card refund">
+        <div class="sum-icon"><i class="fas fa-undo"></i></div>
+        <div class="sum-info">
+          <span class="sum-label">المسترد</span>
+          <span class="sum-val">{{ summary.totalRefund | number:'1.0-0' }} <small>د.ع</small></span>
+        </div>
+      </div>
+      <div class="sum-card balance" [class.positive]="summary.currentBalance >= 0" [class.negative]="summary.currentBalance < 0">
+        <div class="sum-icon"><i class="fas fa-wallet"></i></div>
+        <div class="sum-info">
+          <span class="sum-label">الرصيد الحالي</span>
+          <span class="sum-val">{{ summary.currentBalance | number:'1.0-0' }} <small>د.ع</small></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Date Filter -->
+    <div class="filter-strip">
+      <div class="filter-field">
+        <label>من تاريخ</label>
+        <input type="date" [(ngModel)]="dateFrom" />
+      </div>
+      <div class="filter-field">
+        <label>إلى تاريخ</label>
+        <input type="date" [(ngModel)]="dateTo" />
+      </div>
+      <button class="filter-btn" (click)="applyDateFilter()">
+        <i class="fas fa-filter"></i> تصفية
+      </button>
+      <button class="filter-btn clear" *ngIf="dateFrom || dateTo" (click)="clearDateFilter()">
+        <i class="fas fa-times"></i> مسح
+      </button>
+    </div>
+
+    <!-- Transactions Table -->
+    <div class="tx-section">
+      <div class="tx-header">
+        <h3><i class="fas fa-exchange-alt"></i> سجل المعاملات</h3>
+        <span class="tx-count">{{ summary?.transactions?.length || 0 }} معاملة</span>
+      </div>
+
+      <!-- Empty -->
+      <div class="tx-empty" *ngIf="summary && summary.transactions.length === 0">
+        <i class="fas fa-receipt"></i>
+        <p>لا توجد معاملات في هذه الفترة</p>
+        <button class="btn-add-new" (click)="openAddModal()">
+          <i class="fas fa-plus"></i> إضافة أول معاملة
+        </button>
+      </div>
+
+      <!-- Table -->
+      <div class="tx-table-wrap" *ngIf="summary && summary.transactions.length > 0">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>التاريخ</th>
+              <th>النوع</th>
+              <th>الوصف</th>
+              <th>الشحنة</th>
+              <th>المبلغ</th>
+              <th>العملة</th>
+              <th>قبل</th>
+              <th>بعد</th>
+              <th>بواسطة</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let t of summary.transactions; let i = index">
+              <td class="td-num">{{ i + 1 }}</td>
+              <td class="td-date">{{ t.transactionDate | date:'MM/dd HH:mm' }}</td>
+              <td>
+                <span class="type-pill" [ngClass]="getTypeClass(t.transactionTypeName)">
+                  {{ getTypeLabel(t.transactionTypeName) }}
+                </span>
+              </td>
+              <td class="td-desc">{{ t.description }}</td>
+              <td>
+                <span class="shipment-code" *ngIf="t.shipmentCode">{{ t.shipmentCode }}</span>
+                <span class="dim" *ngIf="!t.shipmentCode">—</span>
+              </td>
+              <td class="td-amount" [ngClass]="getTypeClass(t.transactionTypeName)">
+                {{ t.amount | number:'1.0-0' }}
+              </td>
+              <td class="td-currency">{{ t.currencyName }}</td>
+              <td class="td-bal">{{ t.balanceBefore | number:'1.0-0' }}</td>
+              <td class="td-bal bold">{{ t.balanceAfter | number:'1.0-0' }}</td>
+              <td class="td-user">{{ t.createdByName }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Add Transaction Modal ===== -->
+  <div class="modal-overlay" *ngIf="showAddModal" (click)="closeAddModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-top">
+        <h3><i class="fas fa-plus-circle"></i> إضافة معاملة يدوية</h3>
+        <button class="modal-close" (click)="closeAddModal()"><i class="fas fa-times"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Type Selector -->
+        <div class="modal-field">
+          <label>نوع المعاملة <span class="req">*</span></label>
+          <div class="type-selector">
+            <button
+              *ngFor="let t of transactionTypes"
+              class="type-opt"
+              [class.active]="txForm.transactionType === t.value"
+              [ngClass]="t.cls"
+              (click)="txForm.transactionType = t.value"
+            >
+              <i class="fas" [ngClass]="t.icon"></i>
+              {{ t.label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Amount + Currency -->
+        <div class="modal-row">
+          <div class="modal-field" [class.has-error]="txErrors['amount']">
+            <label>المبلغ <span class="req">*</span></label>
+            <input type="number" [(ngModel)]="txForm.amount" placeholder="0" (input)="txErrors['amount'] = ''" />
+            <span class="field-error" *ngIf="txErrors['amount']">{{ txErrors['amount'] }}</span>
+          </div>
+          <div class="modal-field">
+            <label>العملة</label>
+            <select [(ngModel)]="txForm.currency">
+              <option [ngValue]="0">دينار عراقي</option>
+              <option [ngValue]="1">دولار أمريكي</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div class="modal-field" [class.has-error]="txErrors['desc']">
+          <label>الوصف <span class="req">*</span></label>
+          <input type="text" [(ngModel)]="txForm.description" placeholder="وصف المعاملة" (input)="txErrors['desc'] = ''" />
+          <span class="field-error" *ngIf="txErrors['desc']">{{ txErrors['desc'] }}</span>
+        </div>
+
+        <!-- Notes -->
+        <div class="modal-field">
+          <label>ملاحظات</label>
+          <textarea [(ngModel)]="txForm.notes" rows="2" placeholder="ملاحظات إضافية (اختياري)"></textarea>
+        </div>
+
+        <!-- Balance Preview -->
+        <div class="balance-preview" *ngIf="summary && txForm.amount > 0">
+          <div class="bp-row">
+            <span>الرصيد الحالي</span>
+            <strong>{{ summary.currentBalance | number:'1.0-0' }} د.ع</strong>
+          </div>
+          <div class="bp-divider"></div>
+          <div class="bp-row result">
+            <span>الرصيد بعد المعاملة</span>
+            <strong [class.positive]="estimatedBalance >= 0" [class.negative]="estimatedBalance < 0">
+              {{ estimatedBalance | number:'1.0-0' }} د.ع
+            </strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="modal-btn cancel" (click)="closeAddModal()">إلغاء</button>
+        <button class="modal-btn primary" (click)="submitTransaction()" [disabled]="txSubmitting">
+          <i class="fas fa-spinner fa-spin" *ngIf="txSubmitting"></i>
+          <i class="fas fa-check" *ngIf="!txSubmitting"></i>
+          {{ txSubmitting ? 'جاري الإضافة...' : 'إضافة المعاملة' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

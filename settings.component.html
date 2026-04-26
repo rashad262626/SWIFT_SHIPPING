@@ -1,0 +1,376 @@
+<div class="settings-page">
+
+  <!-- PAGE HEAD -->
+  <div class="page-head">
+    <div class="page-head-text">
+      <h1>
+        <i class="fas fa-cog"></i>
+        إعدادات النظام
+      </h1>
+      <p>إدارة وتخصيص إعدادات منصة الشحن</p>
+    </div>
+    <div class="page-head-actions">
+      <button class="btn-refresh" (click)="loadSettings()" [disabled]="loading">
+        <i class="fas fa-sync-alt" [class.spin]="loading"></i>
+        تحديث
+      </button>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="loading-screen" *ngIf="loading">
+    <div class="loader"></div>
+    <p>جاري تحميل الإعدادات...</p>
+  </div>
+
+  <ng-container *ngIf="!loading">
+
+    <!-- GLOBAL ALERTS -->
+    <div class="alert success" *ngIf="saveSuccess">
+      <i class="fas fa-check-circle"></i>
+      <span>تم حفظ الإعدادات بنجاح</span>
+      <button class="alert-close" (click)="saveSuccess = false">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="alert error" *ngIf="saveError">
+      <i class="fas fa-exclamation-circle"></i>
+      <span>{{ saveError }}</span>
+      <button class="alert-close" (click)="saveError = ''">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs-bar">
+      <button
+        class="tab-btn"
+        [class.active]="activeTab === 'General'"
+        (click)="setTab('General')">
+        <i class="fas fa-building"></i>
+        معلومات الشركة
+        <span class="tab-badge" *ngIf="generalChangesCount > 0">
+          {{ generalChangesCount }}
+        </span>
+      </button>
+      <button
+        class="tab-btn"
+        [class.active]="activeTab === 'CodeFormat'"
+        (click)="setTab('CodeFormat')">
+        <i class="fas fa-barcode"></i>
+        تنسيق الأكواد
+      <!-- بعد -->
+<span class="tab-badge"
+  *ngIf="codeGroups[0] && (codeGroupHasChanges(codeGroups[0]) || codeGroupHasChanges(codeGroups[1]) || codeGroupHasChanges(codeGroups[2]))">
+  {{ getTotalChanges() }}
+</span>
+      </button>
+
+      <div class="tabs-info" *ngIf="getTotalChanges() > 0">
+        <i class="fas fa-circle-dot"></i>
+        {{ getTotalChanges() }} تغيير غير محفوظ
+      </div>
+    </div>
+
+    <!-- ===================== TAB: General ===================== -->
+    <div class="tab-content" *ngIf="activeTab === 'General'">
+      <div class="section-card">
+
+        <!-- Section Head -->
+        <div class="section-head">
+          <div class="section-head-left">
+            <div class="section-icon" style="background: rgba(181,20,39,0.1); color: #b51427">
+              <i class="fas fa-building"></i>
+            </div>
+            <div>
+              <h2>معلومات الشركة</h2>
+              <p>البيانات الأساسية التي تظهر في التقارير والفواتير</p>
+            </div>
+          </div>
+          <div class="section-head-actions">
+            <button
+              class="btn-reset"
+              *ngIf="generalHasChanges"
+              (click)="resetGeneral()">
+              <i class="fas fa-undo"></i>
+              إلغاء
+            </button>
+            <button
+              class="btn-save"
+              [disabled]="!generalHasChanges || saving"
+              (click)="saveGeneral()">
+              <i class="fas"
+                 [ngClass]="savingKey === 'general' ? 'fa-spinner spin' : 'fa-save'">
+              </i>
+              {{ savingKey === 'general' ? 'جاري الحفظ...' : 'حفظ التغييرات' }}
+              <span class="save-badge" *ngIf="generalChangesCount > 0 && savingKey !== 'general'">
+                {{ generalChangesCount }}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Fields Grid -->
+        <div class="fields-grid">
+          <ng-container *ngFor="let field of generalFields">
+            <div
+              class="field-card"
+              [class.changed]="field.value !== field.originalValue"
+              [class.full-width]="field.type === 'textarea'">
+
+              <!-- Field Header -->
+              <div class="field-header">
+                <div class="field-label-wrap">
+                  <div class="field-icon" style="background: rgba(181,20,39,0.08); color: #b51427">
+                    <i [ngClass]="['fas', field.icon]"></i>
+                  </div>
+                  <div>
+                    <label>{{ field.label }}</label>
+                    <p *ngIf="field.description" class="field-desc">{{ field.description }}</p>
+                  </div>
+                </div>
+                <div class="field-indicators">
+                  <span class="changed-dot" *ngIf="field.value !== field.originalValue">
+                    <i class="fas fa-circle"></i> معدّل
+                  </span>
+                  <button
+                    class="btn-undo-field"
+                    *ngIf="field.value !== field.originalValue"
+                    (click)="resetField(field)"
+                    title="إعادة تعيين">
+                    <i class="fas fa-rotate-left"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Input: text / email / tel -->
+              <div
+                class="input-wrap"
+                *ngIf="['text','email','tel'].includes(field.type)">
+                <i [ngClass]="['fas', field.icon, 'input-icon']"></i>
+                <input
+                  [type]="field.type"
+                  [(ngModel)]="field.value"
+                  [placeholder]="field.placeholder || ''"
+                  class="field-input" />
+              </div>
+
+              <!-- Input: number -->
+              <div class="input-wrap" *ngIf="field.type === 'number'">
+                <i [ngClass]="['fas', field.icon, 'input-icon']"></i>
+                <input
+                  type="number"
+                  [(ngModel)]="field.value"
+                  [placeholder]="field.placeholder || ''"
+                  class="field-input" />
+                <span class="input-suffix" *ngIf="field.suffix">{{ field.suffix }}</span>
+              </div>
+
+              <!-- Input: textarea -->
+              <div class="textarea-wrap" *ngIf="field.type === 'textarea'">
+                <textarea
+                  [(ngModel)]="field.value"
+                  [placeholder]="field.placeholder || ''"
+                  class="field-textarea"
+                  rows="3">
+                </textarea>
+              </div>
+
+              <!-- Input: select -->
+              <div class="select-wrap" *ngIf="field.type === 'select'">
+                <i [ngClass]="['fas', field.icon, 'input-icon']"></i>
+                <select [(ngModel)]="field.value" class="field-select">
+                  <option
+                    *ngFor="let opt of field.options"
+                    [value]="opt.value">
+                    {{ opt.label }}
+                  </option>
+                </select>
+                <i class="fas fa-chevron-down select-arrow"></i>
+              </div>
+
+              <!-- Original Value -->
+              <div class="field-original" *ngIf="field.value !== field.originalValue">
+                <i class="fas fa-history"></i>
+                السابق:
+                <em>{{ field.originalValue || '(فارغ)' }}</em>
+              </div>
+
+            </div>
+          </ng-container>
+        </div>
+
+        <!-- Empty -->
+        <div class="empty-state" *ngIf="generalFields.length === 0">
+          <i class="fas fa-inbox"></i>
+          <p>لا توجد إعدادات في هذا القسم</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ===================== TAB: CodeFormat ===================== -->
+    <div class="tab-content" *ngIf="activeTab === 'CodeFormat'">
+
+      <!-- Intro Banner -->
+      <div class="code-intro-banner">
+        <div class="code-intro-icon">
+          <i class="fas fa-barcode"></i>
+        </div>
+        <div>
+          <h3>تنسيق الأكواد التلقائية</h3>
+          <p>
+            حدد شكل الأكواد التي يولدها النظام تلقائياً عند إنشاء العملاء والصناديق والشحنات.
+            سيُطبَّق التنسيق الجديد على الأكواد الجديدة فقط.
+          </p>
+        </div>
+      </div>
+
+      <!-- Code Groups -->
+      <div class="code-groups-grid">
+        <div
+          class="code-group-card"
+          *ngFor="let group of codeGroups"
+          [class.changed]="codeGroupHasChanges(group)">
+
+          <!-- Card Head -->
+          <div class="code-card-head" [style.border-color]="group.color + '30'">
+            <div class="code-card-title">
+              <div class="code-icon" [style.background]="group.color + '15'" [style.color]="group.color">
+                <i [ngClass]="['fas', group.icon]"></i>
+              </div>
+              <div>
+                <h3>{{ group.label }}</h3>
+                <p>تخصيص شكل وتنسيق الكود</p>
+              </div>
+            </div>
+            <div class="code-card-actions">
+              <button
+                class="btn-reset-sm"
+                *ngIf="codeGroupHasChanges(group)"
+                (click)="resetCodeGroup(group)"
+                title="إعادة تعيين">
+                <i class="fas fa-undo"></i>
+              </button>
+              <button
+                class="btn-save-sm"
+                [disabled]="!codeGroupHasChanges(group) || saving"
+                [style.background]="group.color"
+                (click)="saveCodeGroup(group)">
+                <i class="fas"
+                   [ngClass]="savingKey === group.key ? 'fa-spinner spin' : 'fa-save'">
+                </i>
+                {{ savingKey === group.key ? 'جاري...' : 'حفظ' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Card Body -->
+          <div class="code-card-body">
+
+            <!-- Preview -->
+            <div class="code-preview-wrap">
+              <span class="code-preview-label">معاينة الكود</span>
+              <div class="code-preview" [style.border-color]="group.color + '40'" [style.color]="group.color">
+                <i class="fas fa-eye"></i>
+                {{ group.preview || '---' }}
+              </div>
+            </div>
+
+            <!-- Fields -->
+            <div class="code-fields">
+
+              <!-- Prefix -->
+              <div class="code-field" *ngIf="group.prefixField">
+                <label>
+                  <i class="fas fa-tag"></i>
+                  البادئة
+                </label>
+                <div class="code-input-wrap" [class.changed]="group.prefixField.value !== group.prefixField.originalValue">
+                  <input
+                    type="text"
+                    [(ngModel)]="group.prefixField.value"
+                    (ngModelChange)="updatePreview(group)"
+                    [placeholder]="group.prefixField.placeholder || ''"
+                    class="code-input"
+                    maxlength="10" />
+                  <button
+                    class="undo-mini"
+                    *ngIf="group.prefixField.value !== group.prefixField.originalValue"
+                    (click)="resetField(group.prefixField, group)"
+                    title="إعادة تعيين">
+                    <i class="fas fa-rotate-left"></i>
+                  </button>
+                </div>
+                <span class="code-field-hint">نص يظهر في بداية الكود</span>
+              </div>
+
+              <!-- Separator -->
+              <div class="code-field" *ngIf="group.separatorField">
+                <label>
+                  <i class="fas fa-minus"></i>
+                  الفاصل
+                </label>
+                <div class="code-select-wrap" [class.changed]="group.separatorField.value !== group.separatorField.originalValue">
+                  <select
+                    [(ngModel)]="group.separatorField.value"
+                    (ngModelChange)="updatePreview(group)"
+                    class="code-select">
+                    <option
+                      *ngFor="let opt of group.separatorField.options"
+                      [value]="opt.value">
+                      {{ opt.label }}
+                    </option>
+                  </select>
+                  <i class="fas fa-chevron-down code-select-arrow"></i>
+                </div>
+                <span class="code-field-hint">الرمز بين البادئة والرقم</span>
+              </div>
+
+              <!-- Digits -->
+              <div class="code-field" *ngIf="group.digitsField">
+                <label>
+                  <i class="fas fa-hashtag"></i>
+                  عدد الخانات
+                </label>
+                <div class="code-digits-wrap" [class.changed]="group.digitsField.value !== group.digitsField.originalValue">
+                 <button
+  class="digits-btn"
+  (click)="decrementDigits(group)"
+  [disabled]="!group.digitsField || +group.digitsField.value <= 1">
+  <i class="fas fa-minus"></i>
+</button>
+<input
+  type="number"
+  [(ngModel)]="group.digitsField.value"
+  (ngModelChange)="updatePreview(group)"
+  class="digits-input"
+  min="1"
+  max="10" />
+<button
+  class="digits-btn"
+  (click)="incrementDigits(group)"
+  [disabled]="!group.digitsField || +group.digitsField.value >= 10">
+  <i class="fas fa-plus"></i>
+</button>
+                </div>
+                <span class="code-field-hint">عدد أرقام الجزء الرقمي (1-10)</span>
+              </div>
+
+            </div>
+
+            <!-- Changed Indicator -->
+            <div class="code-changed-bar" *ngIf="codeGroupHasChanges(group)">
+              <i class="fas fa-circle-dot"></i>
+              يوجد تغييرات غير محفوظة
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </ng-container>
+
+</div>

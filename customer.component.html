@@ -1,0 +1,238 @@
+<p>customer works!</p>
+<!-- src/app/pages/customers/customers-list/customers-list.component.html -->
+<div class="customers-page">
+  <!-- Toast -->
+  <div class="toast" *ngIf="showToast" [ngClass]="toastType">
+    <i class="fas" [ngClass]="toastType === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'"></i>
+    <span>{{ toastMessage }}</span>
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-right">
+      <div class="header-icon"><i class="fas fa-users"></i></div>
+      <div>
+        <h1>إدارة العملاء</h1>
+        <p>إجمالي <strong>{{ pagination?.totalCount || 0 }}</strong> عميل مسجل في النظام</p>
+      </div>
+    </div>
+    <button class="btn-primary" (click)="goToCreate()">
+      <i class="fas fa-plus"></i>
+      <span>إضافة عميل</span>
+      <kbd>+</kbd>
+    </button>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-row">
+    <div class="stat-card" (click)="filterByStatus(undefined)" [class.active]="activeFilter === undefined">
+      <div class="stat-icon all"><i class="fas fa-users"></i></div>
+      <div class="stat-info">
+        <span class="stat-val">{{ pagination?.totalCount || 0 }}</span>
+        <span class="stat-label">الكل</span>
+      </div>
+    </div>
+    <div class="stat-card" (click)="filterByStatus(true)" [class.active]="activeFilter === true">
+      <div class="stat-icon green"><i class="fas fa-user-check"></i></div>
+      <div class="stat-info">
+        <span class="stat-val green-text">نشط</span>
+        <span class="stat-label">العملاء النشطين</span>
+      </div>
+    </div>
+    <div class="stat-card" (click)="filterByStatus(false)" [class.active]="activeFilter === false">
+      <div class="stat-icon orange"><i class="fas fa-user-times"></i></div>
+      <div class="stat-info">
+        <span class="stat-val orange-text">غير نشط</span>
+        <span class="stat-label">العملاء المتوقفين</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search Bar -->
+  <div class="search-bar">
+    <div class="search-input-wrap">
+      <i class="fas fa-search"></i>
+      <input
+        type="text"
+        [(ngModel)]="search"
+        (keyup.enter)="onSearch()"
+        placeholder="ابحث بالاسم، الكود، أو رقم الهاتف..."
+      />
+      <button class="clear-btn" *ngIf="search" (click)="clearSearch()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <button class="search-btn" (click)="onSearch()">
+      <i class="fas fa-search"></i> بحث
+    </button>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-skeleton" *ngIf="loading">
+    <div class="skeleton-row" *ngFor="let i of [1,2,3,4,5]">
+      <div class="skeleton-avatar"></div>
+      <div class="skeleton-lines">
+        <div class="skeleton-line w60"></div>
+        <div class="skeleton-line w40"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Results + Add Button -->
+  <div class="empty-state" *ngIf="hasNoResults">
+    <div class="empty-icon"><i class="fas fa-user-slash"></i></div>
+    <h3>لا توجد نتائج لـ "{{ search }}"</h3>
+    <p>لم يتم العثور على عميل بهذا الاسم في النظام</p>
+    <button class="btn-add-new" (click)="goToCreateWithSearch()">
+      <i class="fas fa-user-plus"></i>
+      إضافة "{{ search }}" كعميل جديد
+    </button>
+  </div>
+
+  <!-- Empty (no search) -->
+  <div class="empty-state" *ngIf="!loading && customers.length === 0 && !search">
+    <div class="empty-icon"><i class="fas fa-users"></i></div>
+    <h3>لا يوجد عملاء</h3>
+    <p>ابدأ بإضافة أول عميل في النظام</p>
+    <button class="btn-add-new" (click)="goToCreate()">
+      <i class="fas fa-plus"></i> إضافة عميل جديد
+    </button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card" *ngIf="!loading && customers.length > 0">
+    <div class="table-header">
+      <h3><i class="fas fa-list"></i> قائمة العملاء</h3>
+      <span class="badge-count">{{ pagination?.totalCount || customers.length }} عميل</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>العميل</th>
+            <th>الكود</th>
+            <th>الهاتف</th>
+            <th>المدينة</th>
+            <th>الطلبات</th>
+            <th>الرصيد</th>
+            <th>الحالة</th>
+            <th>الإجراءات</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            *ngFor="let c of customers"
+            class="clickable-row"
+            (click)="goToAccount(c.id)"
+          >
+            <!-- Customer -->
+            <td>
+              <div class="customer-cell">
+                <div class="avatar">{{ getInitials(c.fullName) }}</div>
+                <span class="name">{{ c.fullName }}</span>
+              </div>
+            </td>
+            <!-- Code -->
+            <td><span class="code-badge">{{ c.customerCode }}</span></td>
+            <!-- Phone -->
+            <td class="ltr-text">{{ c.phoneNumber }}</td>
+            <!-- City -->
+            <td>{{ c.city || '—' }}</td>
+            <!-- Orders -->
+            <td>
+              <span class="orders-count">{{ c.totalOrders }}</span>
+            </td>
+            <!-- Balance -->
+            <td>
+              <span
+                class="balance"
+                [class.positive]="c.balance >= 0"
+                [class.negative]="c.balance < 0"
+              >
+                {{ c.balance | number:'1.0-0' }}
+                <small>د.ع</small>
+              </span>
+            </td>
+            <!-- Status -->
+            <td>
+              <span class="status-badge" [class.active]="c.isActive" [class.inactive]="!c.isActive">
+                <i class="fas" [ngClass]="c.isActive ? 'fa-check-circle' : 'fa-ban'"></i>
+                {{ c.isActive ? 'نشط' : 'متوقف' }}
+              </span>
+            </td>
+            <!-- Actions -->
+            <td (click)="$event.stopPropagation()">
+              <div class="row-actions">
+                <button class="act-btn blue" title="كشف الحساب" (click)="goToAccount(c.id)">
+                  <i class="fas fa-file-invoice-dollar"></i>
+                </button>
+                <button
+                  class="act-btn"
+                  [ngClass]="c.isActive ? 'orange' : 'green'"
+                  [title]="c.isActive ? 'إيقاف' : 'تفعيل'"
+                  (click)="toggleActive(c, $event)"
+                >
+                  <i class="fas" [ngClass]="c.isActive ? 'fa-pause' : 'fa-play'"></i>
+                </button>
+                <button class="act-btn red" title="حذف" (click)="openDeleteModal(c, $event)">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination" *ngIf="pagination && pagination.totalPages > 1">
+      <button
+        class="page-btn"
+        [disabled]="currentPage === 1"
+        (click)="goToPage(currentPage - 1)"
+      >
+        <i class="fas fa-chevron-right"></i>
+      </button>
+      <button
+        *ngFor="let p of totalPages"
+        class="page-btn"
+        [class.active]="p === currentPage"
+        (click)="goToPage(p)"
+      >{{ p }}</button>
+      <button
+        class="page-btn"
+        [disabled]="currentPage === pagination.totalPages"
+        (click)="goToPage(currentPage + 1)"
+      >
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      <span class="page-info">
+        صفحة {{ currentPage }} من {{ pagination.totalPages }}
+      </span>
+    </div>
+  </div>
+
+  <!-- Delete Modal -->
+  <div class="modal-overlay" *ngIf="showDeleteModal" (click)="closeDeleteModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-icon-wrap danger">
+        <i class="fas fa-exclamation-triangle"></i>
+      </div>
+      <h3>تأكيد الحذف</h3>
+      <p>
+        هل أنت متأكد من حذف العميل
+        <strong>{{ customerToDelete?.fullName }}</strong>؟
+      </p>
+      <p class="warn-text">هذا الإجراء لا يمكن التراجع عنه</p>
+      <div class="modal-actions">
+        <button class="modal-btn cancel" (click)="closeDeleteModal()">إلغاء</button>
+        <button class="modal-btn danger" (click)="confirmDelete()" [disabled]="deleteLoading">
+          <i class="fas fa-spinner fa-spin" *ngIf="deleteLoading"></i>
+          <i class="fas fa-trash-alt" *ngIf="!deleteLoading"></i>
+          حذف
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

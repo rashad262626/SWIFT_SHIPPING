@@ -1,0 +1,302 @@
+<!-- src/app/pages/finance/payments/payments.component.html -->
+<div class="finance-page">
+  <!-- Header -->
+  <div class="page-head">
+    <div>
+      <h1><i class="fas fa-credit-card"></i> المدفوعات</h1>
+      <p>تسجيل ومتابعة مدفوعات الشحنات</p>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn" [class.active]="activeTab === 'add'"
+            (click)="activeTab = 'add'">
+      <i class="fas fa-plus-circle"></i> تسجيل دفعة
+    </button>
+    <button class="tab-btn" [class.active]="activeTab === 'order'"
+            (click)="activeTab = 'order'">
+      <i class="fas fa-box"></i> دفعات الشحنة
+    </button>
+    <button class="tab-btn" [class.active]="activeTab === 'customer'"
+            (click)="activeTab = 'customer'">
+      <i class="fas fa-user"></i> دفعات العميل
+    </button>
+  </div>
+
+  <!-- ===== TAB 1: Add Payment ===== -->
+  <div class="tab-content" *ngIf="activeTab === 'add'">
+    <div class="payment-layout">
+      <!-- Form Card -->
+      <div class="pay-form-card">
+        <div class="card-head">
+          <i class="fas fa-money-bill-wave"></i>
+          <h3>تسجيل دفعة جديدة</h3>
+        </div>
+
+        <!-- Messages -->
+        <div class="msg success" *ngIf="successMsg">
+          <i class="fas fa-check-circle"></i> {{ successMsg }}
+        </div>
+        <div class="msg error" *ngIf="errorMsg">
+          <i class="fas fa-exclamation-circle"></i> {{ errorMsg }}
+        </div>
+
+        <div class="pay-form">
+          <!-- Order Selector -->
+          <div class="field" [class.has-error]="errors['orderId']">
+            <label>الشحنة <span class="req">*</span></label>
+            <div class="order-selector" (clickOutside)="showOrderDropdown = false">
+              <div class="os-wrap" [class.selected]="selectedOrder">
+                <i class="fas fa-search" *ngIf="!selectedOrder"></i>
+                <i class="fas fa-check" *ngIf="selectedOrder" style="color:#10b981"></i>
+                <input type="text" [(ngModel)]="orderSearch"
+                       (input)="onOrderSearch()"
+                       (focus)="showOrderDropdown = true"
+                       placeholder="ابحث برقم الشحنة أو اسم العميل..."
+                       [disabled]="!!selectedOrder" />
+                <button class="os-clear" *ngIf="selectedOrder" (click)="clearOrder()">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+              <!-- Dropdown -->
+              <div class="os-dropdown" *ngIf="showOrderDropdown && filteredOrders.length > 0">
+                <div class="os-item" *ngFor="let o of filteredOrders" (click)="selectOrder(o)">
+                  <div class="os-item-left">
+                    <span class="os-code">{{ o.shipmentCode }}</span>
+                    <span class="os-name">{{ o.customerName }}</span>
+                  </div>
+                  <div class="os-item-right">
+                    <span class="os-remaining">متبقي: {{ formatCurrency(o.remainingAmount) }} د.ل</span>
+                    <span class="pill" [ngClass]="getPayClass(o.paymentStatusName)">{{ o.paymentStatusName }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <span class="err-text" *ngIf="errors['orderId']">{{ errors['orderId'] }}</span>
+          </div>
+
+          <!-- Selected Order Info -->
+          <div class="order-info-card" *ngIf="selectedOrder">
+            <div class="oi-row">
+              <span class="oi-label">الشحنة</span>
+              <span class="oi-val code">{{ selectedOrder.shipmentCode }}</span>
+            </div>
+            <div class="oi-row">
+              <span class="oi-label">العميل</span>
+              <span class="oi-val">{{ selectedOrder.customerName }}</span>
+            </div>
+            <div class="oi-row">
+              <span class="oi-label">السعر النهائي</span>
+              <span class="oi-val">{{ formatCurrency(selectedOrder.finalPrice) }} د.ل</span>
+            </div>
+            <div class="oi-row">
+              <span class="oi-label">المتبقي</span>
+              <span class="oi-val remaining">{{ formatCurrency(selectedOrder.remainingAmount) }} د.ل</span>
+            </div>
+          </div>
+
+          <!-- Amount -->
+          <div class="form-row">
+            <div class="field" [class.has-error]="errors['amount']">
+              <label>المبلغ <span class="req">*</span></label>
+              <div class="amount-input">
+                <input type="number" [(ngModel)]="form.amount"
+                       (input)="clearError('amount')" min="0" step="0.01" />
+                <span class="amount-badge" *ngIf="selectedOrder && form.amount > 0"
+                      [class.full]="form.amount >= selectedOrder.remainingAmount">
+                  {{ form.amount >= selectedOrder.remainingAmount ? 'سداد كامل' : 'جزئي' }}
+                </span>
+              </div>
+              <span class="err-text" *ngIf="errors['amount']">{{ errors['amount'] }}</span>
+            </div>
+            <div class="field">
+              <label>العملة</label>
+              <div class="toggle-btns">
+                <button [class.active]="form.currency === 1" (click)="form.currency = 1">¥ يوان</button>
+                <button [class.active]="form.currency === 2" (click)="form.currency = 2">$ دولار</button>
+                <button [class.active]="form.currency === 3" (click)="form.currency = 3">د.ل دينار</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="field">
+              <label>طريقة الدفع</label>
+              <div class="toggle-btns">
+                <button [class.active]="form.paymentMethod === 1" (click)="form.paymentMethod = 1">
+                  <i class="fas fa-money-bill"></i> نقدي
+                </button>
+                <button [class.active]="form.paymentMethod === 2" (click)="form.paymentMethod = 2">
+                  <i class="fas fa-building-columns"></i> تحويل بنكي
+                </button>
+              </div>
+            </div>
+            <div class="field">
+              <label>تاريخ الدفعة</label>
+              <input type="date" [(ngModel)]="form.paymentDate" class="date-input" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>ملاحظات</label>
+            <textarea [(ngModel)]="form.notes" rows="2" placeholder="ملاحظات اختيارية..."></textarea>
+          </div>
+
+          <button class="submit-btn" (click)="onSubmit()" [disabled]="isSubmitting">
+            <span *ngIf="!isSubmitting"><i class="fas fa-check"></i> تسجيل الدفعة</span>
+            <span *ngIf="isSubmitting"><i class="fas fa-spinner fa-spin"></i> جاري التسجيل...</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Info -->
+      <div class="pay-aside">
+        <div class="aside-tip">
+          <i class="fas fa-lightbulb"></i>
+          <div>
+            <h4>ملاحظات الدفع</h4>
+            <ul>
+              <li>لا يمكن تجاوز المبلغ المتبقي</li>
+              <li>يُحدَّث رصيد العميل تلقائياً</li>
+              <li>يُسجَّل في صندوق الإيرادات</li>
+              <li>يمكن حذف الدفعة من تبويب الشحنة</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TAB 2: Order Payments ===== -->
+  <div class="tab-content" *ngIf="activeTab === 'order'">
+    <div class="lookup-card">
+      <div class="lookup-bar">
+        <div class="lookup-input">
+          <i class="fas fa-hashtag"></i>
+          <input type="number" [(ngModel)]="lookupOrderId"
+                 placeholder="أدخل رقم ID الشحنة..." />
+        </div>
+        <button class="lookup-btn" (click)="lookupByOrder()" [disabled]="!lookupOrderId || isLoading">
+          <i class="fas fa-search"></i> بحث
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="payment-stats" *ngIf="orderPayments.length > 0">
+      <div class="pstat">
+        <span class="pstat-val">{{ stats.totalCount }}</span>
+        <span class="pstat-label">إجمالي الدفعات</span>
+      </div>
+      <div class="pstat">
+        <span class="pstat-val green">{{ formatCurrency(stats.totalAmount) }}</span>
+        <span class="pstat-label">إجمالي المبلغ (د.ل)</span>
+      </div>
+      <div class="pstat">
+        <span class="pstat-val">{{ formatCurrency(stats.cashAmount) }}</span>
+        <span class="pstat-label">نقدي</span>
+      </div>
+      <div class="pstat">
+        <span class="pstat-val blue">{{ formatCurrency(stats.bankAmount) }}</span>
+        <span class="pstat-label">تحويل بنكي</span>
+      </div>
+    </div>
+
+    <div class="payments-table-card" *ngIf="orderPayments.length > 0">
+      <ng-container *ngTemplateOutlet="paymentsTable; context: { payments: orderPayments, type: 'order' }"></ng-container>
+    </div>
+    <div class="empty-state" *ngIf="orderPayments.length === 0 && !isLoading">
+      <i class="fas fa-receipt"></i>
+      <p>ابحث عن شحنة لعرض دفعاتها</p>
+    </div>
+  </div>
+
+  <!-- ===== TAB 3: Customer Payments ===== -->
+  <div class="tab-content" *ngIf="activeTab === 'customer'">
+    <div class="lookup-card">
+      <div class="lookup-bar">
+        <div class="lookup-input">
+          <i class="fas fa-user"></i>
+          <input type="number" [(ngModel)]="lookupCustomerId"
+                 placeholder="أدخل رقم ID العميل..." />
+        </div>
+        <button class="lookup-btn" (click)="lookupByCustomer()" [disabled]="!lookupCustomerId || isLoading">
+          <i class="fas fa-search"></i> بحث
+        </button>
+      </div>
+    </div>
+
+    <div class="payment-stats" *ngIf="customerPayments.length > 0">
+      <div class="pstat">
+        <span class="pstat-val">{{ stats.totalCount }}</span>
+        <span class="pstat-label">إجمالي الدفعات</span>
+      </div>
+      <div class="pstat">
+        <span class="pstat-val green">{{ formatCurrency(stats.totalAmount) }}</span>
+        <span class="pstat-label">إجمالي المبلغ</span>
+      </div>
+      <div class="pstat">
+        <span class="pstat-val">{{ formatCurrency(stats.cashAmount) }}</span>
+        <span class="pstat-label">نقدي</span>
+      </div>
+      <div class="pstat">
+        <span class="pstat-val blue">{{ formatCurrency(stats.bankAmount) }}</span>
+        <span class="pstat-label">تحويل بنكي</span>
+      </div>
+    </div>
+
+    <div class="payments-table-card" *ngIf="customerPayments.length > 0">
+      <ng-container *ngTemplateOutlet="paymentsTable; context: { payments: customerPayments, type: 'customer' }"></ng-container>
+    </div>
+    <div class="empty-state" *ngIf="customerPayments.length === 0 && !isLoading">
+      <i class="fas fa-user-clock"></i>
+      <p>ابحث عن عميل لعرض دفعاته</p>
+    </div>
+  </div>
+
+  <!-- Shared Payments Table -->
+  <ng-template #paymentsTable let-payments="payments" let-type="type">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>كود الشحنة</th>
+            <th>العميل</th>
+            <th>المبلغ</th>
+            <th>العملة</th>
+            <th>طريقة الدفع</th>
+            <th>تاريخ الدفع</th>
+            <th>بواسطة</th>
+            <th>ملاحظات</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of payments">
+            <td class="id-cell">{{ p.id }}</td>
+            <td><span class="code-badge">{{ p.shipmentCode }}</span></td>
+            <td class="customer-cell">{{ p.customerName }}</td>
+            <td class="amount-cell">{{ formatCurrency(p.amount) }}</td>
+            <td><span class="currency-tag">{{ p.currencyName }}</span></td>
+            <td>
+              <span class="method-tag" [class.bank]="p.paymentMethodName === 'تحويل بنكي'">
+                <i [class]="p.paymentMethodName === 'نقدي' ? 'fas fa-money-bill' : 'fas fa-building-columns'"></i>
+                {{ p.paymentMethodName }}
+              </span>
+            </td>
+            <td class="date-cell">{{ p.paymentDate | date:'yyyy/MM/dd' }}</td>
+            <td class="by-cell">{{ p.createdByName }}</td>
+            <td class="notes-cell">{{ p.notes || '—' }}</td>
+            <td>
+              <button class="del-btn" (click)="deletePayment(p.id, type)">
+                <i class="fas fa-trash-can"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ng-template>
+</div>
